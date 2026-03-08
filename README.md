@@ -50,14 +50,15 @@ python train_ppo.py --config configs/stand.yaml
 ```
 
 Suggested curriculum:
-1. `stage_a_stand.yaml` (learn to stand/upright with smooth actions)
-2. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
-3. `stability.yaml` (slow controlled motion)
-4. `base.yaml` (faster tracking)
+1. `stage0_stand_lock.yaml` (hard stand-lock near home posture)
+2. `stage_a_stand.yaml` (stand/upright with smoother actions)
+3. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
+4. `stability.yaml` (slow controlled motion)
+5. `base.yaml` (faster tracking)
 
 Example:
 ```bash
-python train_ppo.py --config configs/stage_a_stand.yaml
+python train_ppo.py --config configs/stage0_stand_lock.yaml
 ```
 
 Stage B warm-start from Stage A final policy:
