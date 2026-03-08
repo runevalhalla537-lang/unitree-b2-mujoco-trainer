@@ -45,7 +45,14 @@ source .venv/bin/activate
 python train_ppo.py --config configs/base.yaml
 # or stability-first profile:
 python train_ppo.py --config configs/stability.yaml
+# or stand-first profile (recommended first stage):
+python train_ppo.py --config configs/stand.yaml
 ```
+
+Suggested curriculum:
+1. `stand.yaml` (learn to stand/balance)
+2. `stability.yaml` (slow controlled motion)
+3. `base.yaml` (faster tracking)
 
 Final model saves to `train/runs/<timestamp>/policy.zip`.
 Interim checkpoints save every ~20k steps to `train/runs/<timestamp>/checkpoints/`.
