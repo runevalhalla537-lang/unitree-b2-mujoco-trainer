@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import time
+from dataclasses import fields
 
 import yaml
 from stable_baselines3 import PPO
@@ -22,7 +23,10 @@ def main():
     args = ap.parse_args()
 
     cfg = load_cfg(args.config)
-    env_cfg = B2EnvConfig(**cfg["env"], xml_path=cfg["xml_path"])
+    env_raw = dict(cfg["env"])
+    allowed = {f.name for f in fields(B2EnvConfig)}
+    env_filtered = {k: v for k, v in env_raw.items() if k in allowed}
+    env_cfg = B2EnvConfig(**env_filtered, xml_path=cfg["xml_path"])
 
     env = Monitor(B2MuJoCoEnv(env_cfg))
 
