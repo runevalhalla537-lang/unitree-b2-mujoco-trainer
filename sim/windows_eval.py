@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import time
 
+import mujoco.viewer
 from stable_baselines3 import PPO
 
 import sys
@@ -28,12 +29,16 @@ def main():
     model = PPO.load(args.model)
 
     obs, _ = env.reset()
-    for _ in range(args.steps):
-        action, _ = model.predict(obs, deterministic=True)
-        obs, _, terminated, truncated, _ = env.step(action)
-        if terminated or truncated:
-            obs, _ = env.reset()
-        time.sleep(0.01)
+
+    # Launch native MuJoCo viewer for visible playback on Windows.
+    with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
+        for _ in range(args.steps):
+            action, _ = model.predict(obs, deterministic=True)
+            obs, _, terminated, truncated, _ = env.step(action)
+            viewer.sync()
+            if terminated or truncated:
+                obs, _ = env.reset()
+            time.sleep(0.01)
 
     env.close()
 
