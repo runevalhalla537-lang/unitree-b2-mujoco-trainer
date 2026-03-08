@@ -60,6 +60,11 @@ Example:
 python train_ppo.py --config configs/stage_a_stand.yaml
 ```
 
+Stage B warm-start from Stage A final policy:
+```bash
+python train_ppo.py --config configs/stage_b_shift.yaml --init-model runs/20260307-194707/policy.zip
+```
+
 Final model saves to `train/runs/<timestamp>/policy.zip`.
 Interim checkpoints save every ~20k steps to `train/runs/<timestamp>/checkpoints/`.
 
