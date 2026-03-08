@@ -50,9 +50,15 @@ python train_ppo.py --config configs/stand.yaml
 ```
 
 Suggested curriculum:
-1. `stand.yaml` (learn to stand/balance)
-2. `stability.yaml` (slow controlled motion)
-3. `base.yaml` (faster tracking)
+1. `stage_a_stand.yaml` (learn to stand/upright with smooth actions)
+2. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
+3. `stability.yaml` (slow controlled motion)
+4. `base.yaml` (faster tracking)
+
+Example:
+```bash
+python train_ppo.py --config configs/stage_a_stand.yaml
+```
 
 Final model saves to `train/runs/<timestamp>/policy.zip`.
 Interim checkpoints save every ~20k steps to `train/runs/<timestamp>/checkpoints/`.
