@@ -51,10 +51,12 @@ python train_ppo.py --config configs/stand.yaml
 
 Suggested curriculum:
 1. `stage0_stand_lock.yaml` (hard stand-lock near home posture)
-2. `stage_a_stand.yaml` (stand/upright with smoother actions)
-3. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
-4. `stability.yaml` (slow controlled motion)
-5. `base.yaml` (faster tracking)
+2. `stage0b_pd_standup.yaml` (PD-assisted stand-up from collapse)
+3. `stage_a_stand.yaml` (stand/upright with smoother actions)
+4. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
+5. `stage_c_walk_bootstrap.yaml` (movement-focused bootstrap from stand policy)
+6. `stability.yaml` (slow controlled motion)
+7. `base.yaml` (faster tracking)
 
 Example:
 ```bash
