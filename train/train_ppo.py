@@ -7,6 +7,7 @@ from dataclasses import fields
 
 import yaml
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 
 from envs.b2_env import B2EnvConfig, B2MuJoCoEnv
@@ -50,7 +51,17 @@ def main():
         vf_coef=ppo_cfg["vf_coef"],
     )
 
-    model.learn(total_timesteps=ppo_cfg["total_timesteps"], progress_bar=False)
+    ckpt_dir = os.path.join(run_dir, "checkpoints")
+    os.makedirs(ckpt_dir, exist_ok=True)
+    checkpoint_cb = CheckpointCallback(
+        save_freq=20_000,
+        save_path=ckpt_dir,
+        name_prefix="policy_step",
+        save_replay_buffer=False,
+        save_vecnormalize=False,
+    )
+
+    model.learn(total_timesteps=ppo_cfg["total_timesteps"], progress_bar=False, callback=checkpoint_cb)
 
     out_model = os.path.join(run_dir, "policy.zip")
     model.save(out_model)
