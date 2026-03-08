@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import gymnasium as gym
 import mujoco
@@ -25,6 +26,12 @@ class B2EnvConfig:
     orient_penalty_weight: float = 1.0
     alive_bonus: float = 0.5
     stand_pose_penalty_weight: float = 2.0
+    # PD-style control parameters for stand-up / posture-hold
+    target_delta_scale: float = 0.25
+    kp: float = 45.0
+    kd: float = 1.5
+    standup_steps: int = 200
+    standup_gain: float = 1.0
 
 
 class B2MuJoCoEnv(gym.Env):
@@ -60,16 +67,56 @@ class B2MuJoCoEnv(gym.Env):
 
         # Map each actuator to its joint qpos index; used for stand-pose reward shaping.
         self.actuator_joint_qpos_idx = []
+        self.actuator_joint_dof_idx = []
+        self.actuator_joint_min = []
+        self.actuator_joint_max = []
         for i in range(self.nu):
             jid = int(self.model.actuator_trnid[i, 0])
             qadr = int(self.model.jnt_qposadr[jid])
+            dadr = int(self.model.jnt_dofadr[jid])
             self.actuator_joint_qpos_idx.append(qadr)
+            self.actuator_joint_dof_idx.append(dadr)
+            jmin, jmax = self.model.jnt_range[jid]
+            self.actuator_joint_min.append(float(jmin))
+            self.actuator_joint_max.append(float(jmax))
         self.actuator_joint_qpos_idx = np.asarray(self.actuator_joint_qpos_idx, dtype=np.int32)
+        self.actuator_joint_dof_idx = np.asarray(self.actuator_joint_dof_idx, dtype=np.int32)
+        self.actuator_joint_min = np.asarray(self.actuator_joint_min, dtype=np.float64)
+        self.actuator_joint_max = np.asarray(self.actuator_joint_max, dtype=np.float64)
 
         self.home_joint_qpos = np.zeros(self.nu, dtype=np.float64)
+        self.home_base_qpos = None
         if self.home_key >= 0 and self.nu > 0:
             home_q = self.model.key_qpos[self.home_key]
             self.home_joint_qpos = home_q[self.actuator_joint_qpos_idx].copy()
+            if len(home_q) >= 7:
+                self.home_base_qpos = home_q[:7].copy()
+        else:
+            # scene.xml may not expose the home keyframe; fall back to sibling b2.xml home pose.
+            try:
+                alt_xml = Path(cfg.xml_path).with_name("b2.xml")
+                if alt_xml.exists():
+                    alt_model = mujoco.MjModel.from_xml_path(str(alt_xml))
+                    alt_home = mujoco.mj_name2id(alt_model, mujoco.mjtObj.mjOBJ_KEY, "home")
+                    if alt_home >= 0:
+                        alt_q = alt_model.key_qpos[alt_home]
+                        if len(alt_q) >= 7:
+                            self.home_base_qpos = alt_q[:7].copy()
+                        # map by joint names
+                        joint_to_q = {}
+                        for j in range(alt_model.njnt):
+                            jn = mujoco.mj_id2name(alt_model, mujoco.mjtObj.mjOBJ_JOINT, j)
+                            if jn and jn != "free":
+                                qadr = int(alt_model.jnt_qposadr[j])
+                                joint_to_q[jn] = float(alt_q[qadr])
+                        vals = []
+                        for i in range(self.nu):
+                            jid = int(self.model.actuator_trnid[i, 0])
+                            jn = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, jid)
+                            vals.append(joint_to_q.get(jn, 0.0))
+                        self.home_joint_qpos = np.asarray(vals, dtype=np.float64)
+            except Exception:
+                pass
 
         obs_dim = self.nq + self.nv + 3
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
@@ -89,6 +136,14 @@ class B2MuJoCoEnv(gym.Env):
             mujoco.mj_resetDataKeyframe(self.model, self.data, self.home_key)
         else:
             mujoco.mj_resetData(self.model, self.data)
+            # Explicitly seed a standing-like pose when keyframe is missing.
+            if self.home_base_qpos is not None and self.nq >= 7:
+                self.data.qpos[:7] = self.home_base_qpos
+            elif self.nq >= 7:
+                # fallback base pose (x,y,z, qw,qx,qy,qz)
+                self.data.qpos[:7] = np.array([0.0, 0.0, 0.33, 1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+            if self.nu > 0:
+                self.data.qpos[self.actuator_joint_qpos_idx] = self.home_joint_qpos
 
         # small randomization around default pose for robustness
         if self.cfg.reset_noise_qpos > 0:
@@ -106,10 +161,25 @@ class B2MuJoCoEnv(gym.Env):
         action = np.asarray(action, dtype=np.float64)
         action = np.clip(action, -1.0, 1.0)
 
-        # torque/motor command in actuator ctrlrange
+        # PD-style joint target control mapped into motor ctrl range.
         if self.nu > 0:
-            scaled = self.ctrl_mid + action * (self.ctrl_half * self.cfg.action_scale)
-            self.data.ctrl[:] = np.clip(scaled, self.ctrl_min, self.ctrl_max)
+            q = self.data.qpos[self.actuator_joint_qpos_idx]
+            qd = self.data.qvel[self.actuator_joint_dof_idx]
+
+            # Action steers joint targets around home posture.
+            target = self.home_joint_qpos + action * self.cfg.target_delta_scale
+            target = np.clip(target, self.actuator_joint_min, self.actuator_joint_max)
+
+            # Early stand-up assist: bias target strongly to home pose.
+            if self._step_count < self.cfg.standup_steps:
+                target = self.home_joint_qpos + (target - self.home_joint_qpos) * 0.35
+
+            torque = self.cfg.kp * (target - q) - self.cfg.kd * qd
+
+            if self._step_count < self.cfg.standup_steps:
+                torque += self.cfg.standup_gain * self.cfg.kp * (self.home_joint_qpos - q)
+
+            self.data.ctrl[:] = np.clip(torque, self.ctrl_min, self.ctrl_max)
 
         for _ in range(self.cfg.frame_skip):
             mujoco.mj_step(self.model, self.data)
