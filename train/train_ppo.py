@@ -21,6 +21,7 @@ def load_cfg(path: str):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
+    ap.add_argument("--init-model", default=None, help="Optional PPO .zip checkpoint to continue training from")
     args = ap.parse_args()
 
     cfg = load_cfg(args.config)
@@ -36,20 +37,23 @@ def main():
     os.makedirs(run_dir, exist_ok=True)
 
     ppo_cfg = cfg["train"]
-    model = PPO(
-        "MlpPolicy",
-        env,
-        verbose=1,
-        tensorboard_log=os.path.join(run_dir, "tb"),
-        n_steps=ppo_cfg["n_steps"],
-        batch_size=ppo_cfg["batch_size"],
-        learning_rate=ppo_cfg["learning_rate"],
-        gamma=ppo_cfg["gamma"],
-        gae_lambda=ppo_cfg["gae_lambda"],
-        clip_range=ppo_cfg["clip_range"],
-        ent_coef=ppo_cfg["ent_coef"],
-        vf_coef=ppo_cfg["vf_coef"],
-    )
+    if args.init_model:
+        model = PPO.load(args.init_model, env=env, verbose=1)
+    else:
+        model = PPO(
+            "MlpPolicy",
+            env,
+            verbose=1,
+            tensorboard_log=os.path.join(run_dir, "tb"),
+            n_steps=ppo_cfg["n_steps"],
+            batch_size=ppo_cfg["batch_size"],
+            learning_rate=ppo_cfg["learning_rate"],
+            gamma=ppo_cfg["gamma"],
+            gae_lambda=ppo_cfg["gae_lambda"],
+            clip_range=ppo_cfg["clip_range"],
+            ent_coef=ppo_cfg["ent_coef"],
+            vf_coef=ppo_cfg["vf_coef"],
+        )
 
     ckpt_dir = os.path.join(run_dir, "checkpoints")
     os.makedirs(ckpt_dir, exist_ok=True)
