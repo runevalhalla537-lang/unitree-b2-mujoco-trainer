@@ -1,0 +1,21 @@
+xml_path: ../assets/b2/b2.xml
+
+train:
+  total_timesteps: 1000000
+  n_steps: 2048
+  batch_size: 256
+  learning_rate: 0.0002
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.7
+
+env:
+  target_lin_vel: 0.0
+  max_episode_steps: 2000
+  frame_skip: 4
+  action_scale: 0.10
+  fall_height_threshold: 0.18
+  ctrl_penalty_weight: 0.004
+  reset_noise_qpos: 0.001
