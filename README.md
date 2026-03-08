@@ -13,11 +13,19 @@ Starter scaffold for:
 ## Quick start
 
 ## 1) Add B2 model assets
-Place your MuJoCo XML at:
+
+Recommended (auto-fetch from Unitree upstream):
+
+```bash
+bash scripts/fetch_unitree_b2_assets.sh
+```
+
+This copies `unitree_robots/b2/*` into `assets/b2/`.
+Main XML path becomes:
 
 `assets/b2/b2.xml`
 
-Update paths inside XML for meshes/textures as needed.
+See `B2_PROFILE.md` for joint/control alignment assumptions.
 
 ## 2) Spark setup (training)
 
