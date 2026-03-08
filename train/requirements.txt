@@ -6,3 +6,4 @@ tensorboard>=2.17
 pyyaml>=6.0.1
 tqdm>=4.66
 rich>=13.7
+scipy>=1.11
