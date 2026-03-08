@@ -45,7 +45,8 @@ source .venv/bin/activate
 python train_ppo.py --config configs/base.yaml
 ```
 
-Checkpoints save to `train/runs/<timestamp>/`.
+Final model saves to `train/runs/<timestamp>/policy.zip`.
+Interim checkpoints save every ~20k steps to `train/runs/<timestamp>/checkpoints/`.
 
 ## 3) Windows setup (visual eval)
 
