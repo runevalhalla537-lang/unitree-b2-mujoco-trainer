@@ -1,0 +1,30 @@
+xml_path: ../assets/b2/scene.xml
+
+train:
+  total_timesteps: 1200000
+  n_steps: 2048
+  batch_size: 256
+  learning_rate: 0.0002
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.001
+  vf_coef: 0.8
+
+env:
+  target_lin_vel: 0.0
+  max_episode_steps: 2200
+  frame_skip: 4
+  action_scale: 0.25
+  target_delta_scale: 0.30
+  kp: 55.0
+  kd: 2.0
+  standup_steps: 260
+  standup_gain: 1.2
+  fall_height_threshold: 0.20
+  ctrl_penalty_weight: 0.0015
+  smooth_penalty_weight: 0.0015
+  orient_penalty_weight: 1.2
+  stand_pose_penalty_weight: 1.4
+  alive_bonus: 1.0
+  reset_noise_qpos: 0.0005
