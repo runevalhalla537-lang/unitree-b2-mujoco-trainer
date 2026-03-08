@@ -43,6 +43,8 @@ python ../scripts/validate_b2_model.py --xml ../assets/b2/b2.xml
 cd unitree-b2-mujoco-trainer/train
 source .venv/bin/activate
 python train_ppo.py --config configs/base.yaml
+# or stability-first profile:
+python train_ppo.py --config configs/stability.yaml
 ```
 
 Final model saves to `train/runs/<timestamp>/policy.zip`.
