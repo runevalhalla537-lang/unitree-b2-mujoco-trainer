@@ -4,3 +4,5 @@ gymnasium>=0.29
 stable-baselines3>=2.3.2
 tensorboard>=2.17
 pyyaml>=6.0.1
+tqdm>=4.66
+rich>=13.7
