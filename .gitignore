@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Training outputs
+train/runs/
+
+# Proprietary robot assets (keep local)
+assets/b2/*.stl
+assets/b2/*.dae
+assets/b2/*.obj
+assets/b2/*.png
+assets/b2/*.jpg
+assets/b2/*.xml
+!assets/b2/.gitkeep
