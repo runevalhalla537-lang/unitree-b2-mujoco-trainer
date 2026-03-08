@@ -19,6 +19,7 @@ class B2EnvConfig:
     action_scale: float = 0.35
     fall_height_threshold: float = 0.18
     reset_noise_qpos: float = 0.002
+    ctrl_penalty_weight: float = 0.002
 
 
 class B2MuJoCoEnv(gym.Env):
@@ -102,7 +103,7 @@ class B2MuJoCoEnv(gym.Env):
         base_height = float(self.data.qpos[2]) if self.nq > 2 else 0.3
         upright_bonus = 0.5 if base_height > self.cfg.fall_height_threshold else -1.0
 
-        ctrl_penalty = 0.0005 * float(np.sum(np.square(action)))
+        ctrl_penalty = self.cfg.ctrl_penalty_weight * float(np.sum(np.square(action)))
         reward = vel_reward + upright_bonus - ctrl_penalty
 
         terminated = base_height < self.cfg.fall_height_threshold
