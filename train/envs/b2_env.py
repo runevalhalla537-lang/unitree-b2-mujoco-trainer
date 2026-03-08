@@ -7,6 +7,7 @@ import gymnasium as gym
 import mujoco
 import numpy as np
 from gymnasium import spaces
+from scipy.spatial.transform import Rotation as R
 
 
 @dataclass
@@ -20,6 +21,9 @@ class B2EnvConfig:
     fall_height_threshold: float = 0.18
     reset_noise_qpos: float = 0.002
     ctrl_penalty_weight: float = 0.002
+    smooth_penalty_weight: float = 0.002
+    orient_penalty_weight: float = 1.0
+    alive_bonus: float = 0.5
 
 
 class B2MuJoCoEnv(gym.Env):
@@ -35,6 +39,7 @@ class B2MuJoCoEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         self.render_mode = render_mode
         self._step_count = 0
+        self.prev_action = np.zeros(self.model.nu, dtype=np.float64)
 
         self.nq = self.model.nq
         self.nv = self.model.nv
@@ -77,6 +82,7 @@ class B2MuJoCoEnv(gym.Env):
         self.data.qvel[:] = 0
         if self.nu > 0:
             self.data.ctrl[:] = self.ctrl_mid
+        self.prev_action[:] = 0
         mujoco.mj_forward(self.model, self.data)
 
         return self._get_obs(), {}
@@ -96,15 +102,26 @@ class B2MuJoCoEnv(gym.Env):
 
         obs = self._get_obs()
 
-        # reward: track forward speed, keep body up, penalize large controls
+        # reward: track forward speed, keep body up+upright, penalize large/sudden controls
         vx = float(self.data.qvel[0]) if self.nv > 0 else 0.0
         vel_reward = 1.0 - abs(vx - self.cfg.target_lin_vel)
 
         base_height = float(self.data.qpos[2]) if self.nq > 2 else 0.3
-        upright_bonus = 0.5 if base_height > self.cfg.fall_height_threshold else -1.0
+        alive = self.cfg.alive_bonus if base_height > self.cfg.fall_height_threshold else -1.0
+
+        # quaternion in qpos[3:7] for free base (w,x,y,z)
+        roll = pitch = 0.0
+        if self.nq >= 7:
+            q = self.data.qpos[3:7]
+            quat_xyzw = np.array([q[1], q[2], q[3], q[0]], dtype=np.float64)
+            roll, pitch, _ = R.from_quat(quat_xyzw).as_euler("xyz", degrees=False)
+        orient_penalty = self.cfg.orient_penalty_weight * (abs(roll) + abs(pitch))
 
         ctrl_penalty = self.cfg.ctrl_penalty_weight * float(np.sum(np.square(action)))
-        reward = vel_reward + upright_bonus - ctrl_penalty
+        smooth_penalty = self.cfg.smooth_penalty_weight * float(np.sum(np.square(action - self.prev_action)))
+        self.prev_action = action.copy()
+
+        reward = vel_reward + alive - orient_penalty - ctrl_penalty - smooth_penalty
 
         terminated = base_height < self.cfg.fall_height_threshold
         truncated = self._step_count >= self.cfg.max_episode_steps
@@ -113,8 +130,10 @@ class B2MuJoCoEnv(gym.Env):
             "vx": vx,
             "base_height": base_height,
             "vel_reward": vel_reward,
-            "upright_bonus": upright_bonus,
+            "alive": alive,
+            "orient_penalty": orient_penalty,
             "ctrl_penalty": ctrl_penalty,
+            "smooth_penalty": smooth_penalty,
         }
 
         return obs, reward, terminated, truncated, info
