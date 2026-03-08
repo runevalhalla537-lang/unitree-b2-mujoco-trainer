@@ -24,6 +24,7 @@ class B2EnvConfig:
     smooth_penalty_weight: float = 0.002
     orient_penalty_weight: float = 1.0
     alive_bonus: float = 0.5
+    stand_pose_penalty_weight: float = 2.0
 
 
 class B2MuJoCoEnv(gym.Env):
@@ -56,6 +57,19 @@ class B2MuJoCoEnv(gym.Env):
 
         # Optional home keyframe support (present in Unitree b2.xml)
         self.home_key = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_KEY, "home")
+
+        # Map each actuator to its joint qpos index; used for stand-pose reward shaping.
+        self.actuator_joint_qpos_idx = []
+        for i in range(self.nu):
+            jid = int(self.model.actuator_trnid[i, 0])
+            qadr = int(self.model.jnt_qposadr[jid])
+            self.actuator_joint_qpos_idx.append(qadr)
+        self.actuator_joint_qpos_idx = np.asarray(self.actuator_joint_qpos_idx, dtype=np.int32)
+
+        self.home_joint_qpos = np.zeros(self.nu, dtype=np.float64)
+        if self.home_key >= 0 and self.nu > 0:
+            home_q = self.model.key_qpos[self.home_key]
+            self.home_joint_qpos = home_q[self.actuator_joint_qpos_idx].copy()
 
         obs_dim = self.nq + self.nv + 3
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
@@ -119,9 +133,15 @@ class B2MuJoCoEnv(gym.Env):
 
         ctrl_penalty = self.cfg.ctrl_penalty_weight * float(np.sum(np.square(action)))
         smooth_penalty = self.cfg.smooth_penalty_weight * float(np.sum(np.square(action - self.prev_action)))
+
+        stand_pose_penalty = 0.0
+        if self.nu > 0:
+            joint_q = self.data.qpos[self.actuator_joint_qpos_idx]
+            stand_pose_penalty = self.cfg.stand_pose_penalty_weight * float(np.mean(np.abs(joint_q - self.home_joint_qpos)))
+
         self.prev_action = action.copy()
 
-        reward = vel_reward + alive - orient_penalty - ctrl_penalty - smooth_penalty
+        reward = vel_reward + alive - orient_penalty - ctrl_penalty - smooth_penalty - stand_pose_penalty
 
         terminated = base_height < self.cfg.fall_height_threshold
         truncated = self._step_count >= self.cfg.max_episode_steps
@@ -134,6 +154,7 @@ class B2MuJoCoEnv(gym.Env):
             "orient_penalty": orient_penalty,
             "ctrl_penalty": ctrl_penalty,
             "smooth_penalty": smooth_penalty,
+            "stand_pose_penalty": stand_pose_penalty,
         }
 
         return obs, reward, terminated, truncated, info
