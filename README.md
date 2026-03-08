@@ -27,13 +27,21 @@ Main XML path becomes:
 
 See `B2_PROFILE.md` for joint/control alignment assumptions.
 
-## 2) Spark setup (training)
+## 2) Validate model before training (recommended)
 
 ```bash
 cd unitree-b2-mujoco-trainer/train
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python ../scripts/validate_b2_model.py --xml ../assets/b2/b2.xml
+```
+
+## 3) Spark setup (training)
+
+```bash
+cd unitree-b2-mujoco-trainer/train
+source .venv/bin/activate
 python train_ppo.py --config configs/base.yaml
 ```
 
