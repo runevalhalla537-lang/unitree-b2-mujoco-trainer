@@ -50,7 +50,7 @@ def main():
         vf_coef=ppo_cfg["vf_coef"],
     )
 
-    model.learn(total_timesteps=ppo_cfg["total_timesteps"], progress_bar=True)
+    model.learn(total_timesteps=ppo_cfg["total_timesteps"], progress_bar=False)
 
     out_model = os.path.join(run_dir, "policy.zip")
     model.save(out_model)
