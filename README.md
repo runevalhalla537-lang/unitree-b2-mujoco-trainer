@@ -55,8 +55,9 @@ Suggested curriculum:
 3. `stage_a_stand.yaml` (stand/upright with smoother actions)
 4. `stage_b_shift.yaml` (tiny forward drift + weight shifting)
 5. `stage_c_walk_bootstrap.yaml` (movement-focused bootstrap from stand policy)
-6. `stability.yaml` (slow controlled motion)
-7. `base.yaml` (faster tracking)
+6. `stage_d_walk_from_stand.yaml` (walk training with minimal stand-up assist)
+7. `stability.yaml` (slow controlled motion)
+8. `base.yaml` (faster tracking)
 
 Example:
 ```bash
