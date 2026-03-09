@@ -4,6 +4,7 @@ import argparse
 import time
 
 import mujoco.viewer
+import mujoco
 from stable_baselines3 import PPO
 
 import sys
@@ -14,6 +15,26 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "train"))
 
 from envs.b2_env import B2EnvConfig, B2MuJoCoEnv  # noqa: E402
+
+
+def force_stand_pose(env: B2MuJoCoEnv):
+    """Reset env state into an explicit standing-like pose for gait evaluation."""
+    mujoco.mj_resetData(env.model, env.data)
+
+    # base pose: x,y,z + unit quaternion
+    if env.model.nq >= 7:
+        if getattr(env, "home_base_qpos", None) is not None:
+            env.data.qpos[:7] = env.home_base_qpos
+        else:
+            env.data.qpos[:7] = [0.0, 0.0, 0.33, 1.0, 0.0, 0.0, 0.0]
+
+    # joint pose from home profile when available
+    if env.nu > 0 and hasattr(env, "actuator_joint_qpos_idx") and hasattr(env, "home_joint_qpos"):
+        env.data.qpos[env.actuator_joint_qpos_idx] = env.home_joint_qpos
+        env.data.ctrl[:] = env.ctrl_mid
+
+    env.data.qvel[:] = 0
+    mujoco.mj_forward(env.model, env.data)
 
 
 def main():
@@ -29,6 +50,8 @@ def main():
     model = PPO.load(args.model)
 
     obs, _ = env.reset()
+    force_stand_pose(env)
+    obs = env._get_obs()
 
     # Launch native MuJoCo viewer for visible playback on Windows.
     with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
